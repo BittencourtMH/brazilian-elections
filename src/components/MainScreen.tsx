@@ -6,26 +6,41 @@ import {
   Election,
   ElectionDay,
   ElectionSettings,
-  Location,
+  Location as Ea11Location,
   OfficeOrQuestion,
-} from "model/tse";
+} from "model/tse/ea11";
+
+import {
+  Location as Ea12Location,
+  Municipality,
+  MunicipalitySettings,
+} from "model/tse/ea12";
 
 type Props = {
-  data: ElectionSettings;
+  electionSettings: ElectionSettings;
+  getMunicipalities: (election: Election["cd"]) => MunicipalitySettings;
 };
 
-export const MainScreen = ({ data }: Props) => {
+export const MainScreen = ({ electionSettings, getMunicipalities }: Props) => {
   const [electionDay, setElectionDay] = useState<ElectionDay | null>(null);
   const [election, setElection] = useState<Election | null>(null);
-  const [location, setLocation] = useState<Location | null>(null);
+  const [location, setLocation] = useState<Ea11Location | null>(null);
+
   const [officeOrQuestion, setOfficeOrQuestion] =
     useState<OfficeOrQuestion | null>(null);
 
+  const [municipalities, setMunicipalities] =
+    useState<MunicipalitySettings | null>(null);
+
+  const [uf, setUf] = useState<Ea12Location | null>(null);
+  const [municipality, setMunicipality] = useState<Municipality | null>(null);
+  const [zone, setZone] = useState<string | null>(null);
+
   useEffect(() => {
-    if (data.pl.length === 1) {
-      setElectionDay(data.pl[0]);
+    if (electionSettings.pl.length === 1) {
+      setElectionDay(electionSettings.pl[0]);
     }
-  }, [data]);
+  }, [electionSettings]);
 
   useEffect(() => {
     setElection(electionDay?.e.length !== 1 ? null : electionDay.e[0]);
@@ -33,18 +48,34 @@ export const MainScreen = ({ data }: Props) => {
 
   useEffect(() => {
     setLocation(election?.abr.length !== 1 ? null : election.abr[0]);
-  }, [election]);
+
+    if (election) {
+      setMunicipalities(getMunicipalities(election.cd));
+    }
+  }, [election, getMunicipalities]);
 
   useEffect(() => {
     setOfficeOrQuestion(location?.cp.length !== 1 ? null : location.cp[0]);
   }, [location]);
 
+  useEffect(() => {
+    setUf(municipalities?.abr.length !== 1 ? null : municipalities.abr[0]);
+  }, [municipalities]);
+
+  useEffect(() => {
+    setMunicipality(uf?.mu.length !== 1 ? null : uf.mu[0]);
+  }, [uf]);
+
+  useEffect(() => {
+    setZone(municipality?.z.length !== 1 ? null : municipality.z[0]);
+  }, [municipality]);
+
   return (
-    <Stack direction="row" gap={2} m={4}>
+    <Stack direction="row" flexWrap="wrap" gap={2} m={4}>
       <Autocomplete
         getOptionLabel={(option) => option.dt}
         onChange={(_, value) => setElectionDay(value)}
-        options={data.pl}
+        options={electionSettings.pl}
         renderInput={(params) => (
           <TextField {...params} label="Election day" sx={{ width: 200 }} />
         )}
@@ -83,6 +114,35 @@ export const MainScreen = ({ data }: Props) => {
           />
         )}
         value={officeOrQuestion}
+      />
+
+      <Autocomplete
+        getOptionLabel={(option) => option.ds}
+        onChange={(_, value) => setUf(value)}
+        options={municipalities?.abr ?? []}
+        renderInput={(params) => (
+          <TextField {...params} label="UF" sx={{ width: 300 }} />
+        )}
+        value={uf}
+      />
+
+      <Autocomplete
+        getOptionLabel={(option) => option.nm}
+        onChange={(_, value) => setMunicipality(value)}
+        options={uf?.mu ?? []}
+        renderInput={(params) => (
+          <TextField {...params} label="Municipality" sx={{ width: 400 }} />
+        )}
+        value={municipality}
+      />
+
+      <Autocomplete
+        onChange={(_, value) => setZone(value)}
+        options={municipality?.z ?? []}
+        renderInput={(params) => (
+          <TextField {...params} label="Zone" sx={{ width: 200 }} />
+        )}
+        value={zone}
       />
     </Stack>
   );
