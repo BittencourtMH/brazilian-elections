@@ -1,148 +1,214 @@
-import { useEffect, useState } from "react";
-
-import { Autocomplete, Stack, TextField } from "@mui/material";
+import { useEffect, useReducer, useState } from "react";
 
 import {
-  Election,
-  ElectionDay,
-  ElectionSettings,
-  Location as Ea11Location,
-  OfficeOrQuestion,
-} from "model/tse/ea11";
+  Autocomplete,
+  Button,
+  MenuItem,
+  Stack,
+  TextField,
+} from "@mui/material";
 
-import {
-  Location as Ea12Location,
-  Municipality,
-  MunicipalitySettings,
-} from "model/tse/ea12";
+import { DataGrid, GridColDef } from "@mui/x-data-grid";
+
+import { Query } from "model/app";
+import { ElectionSettings } from "model/tse/ea11";
+import { formReducer, init } from "reducers/formReducer";
+import { getMunicipalitySettings } from "services";
 
 type Props = {
   electionSettings: ElectionSettings;
-  getMunicipalities: (election: Election["cd"]) => MunicipalitySettings;
 };
 
-export const MainScreen = ({ electionSettings, getMunicipalities }: Props) => {
-  const [electionDay, setElectionDay] = useState<ElectionDay | null>(null);
-  const [election, setElection] = useState<Election | null>(null);
-  const [location, setLocation] = useState<Ea11Location | null>(null);
+const durations = Array.from({ length: 12 }, (_, i) => 5 * (i + 1));
 
-  const [officeOrQuestion, setOfficeOrQuestion] =
-    useState<OfficeOrQuestion | null>(null);
+const columns: GridColDef<Query>[] = [
+  {
+    field: "election",
+    flex: 1,
+    headerName: "Election",
+    valueGetter: (params) => params.row.election.nm,
+  },
+  { field: "uf", headerName: "UF", valueGetter: (params) => params.row.uf?.cd },
+  {
+    field: "municipality",
+    flex: 1,
+    headerName: "Municipality",
+    valueGetter: (params) => params.row.municipality?.nm,
+  },
+  { field: "zone", headerName: "Zone" },
+  {
+    field: "officeOrQuestion",
+    flex: 1,
+    headerName: "Office or question",
+    valueGetter: (params) => params.row.officeOrQuestion.ds,
+  },
+  { field: "duration", headerName: "Duration" },
+];
 
-  const [municipalities, setMunicipalities] =
-    useState<MunicipalitySettings | null>(null);
+export const MainScreen = ({ electionSettings }: Props) => {
+  const [duration, setDuration] = useState(durations[0]);
+  const [queries, setQueries] = useState<Query[]>([]);
 
-  const [uf, setUf] = useState<Ea12Location | null>(null);
-  const [municipality, setMunicipality] = useState<Municipality | null>(null);
-  const [zone, setZone] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(formReducer, electionSettings.pl, init);
+
+  const { value, options, required } = state;
 
   useEffect(() => {
-    if (electionSettings.pl.length === 1) {
-      setElectionDay(electionSettings.pl[0]);
+    if (value.election) {
+      dispatch({
+        type: "options.uf",
+        payload: getMunicipalitySettings(value.election.cd).abr,
+      });
     }
-  }, [electionSettings]);
-
-  useEffect(() => {
-    setElection(electionDay?.e.length !== 1 ? null : electionDay.e[0]);
-  }, [electionDay]);
-
-  useEffect(() => {
-    setLocation(election?.abr.length !== 1 ? null : election.abr[0]);
-
-    if (election) {
-      setMunicipalities(getMunicipalities(election.cd));
-    }
-  }, [election, getMunicipalities]);
-
-  useEffect(() => {
-    setOfficeOrQuestion(location?.cp.length !== 1 ? null : location.cp[0]);
-  }, [location]);
-
-  useEffect(() => {
-    setUf(municipalities?.abr.length !== 1 ? null : municipalities.abr[0]);
-  }, [municipalities]);
-
-  useEffect(() => {
-    setMunicipality(uf?.mu.length !== 1 ? null : uf.mu[0]);
-  }, [uf]);
-
-  useEffect(() => {
-    setZone(municipality?.z.length !== 1 ? null : municipality.z[0]);
-  }, [municipality]);
+  }, [value.election]);
 
   return (
-    <Stack direction="row" flexWrap="wrap" gap={2} m={4}>
-      <Autocomplete
-        getOptionLabel={(option) => option.dt}
-        onChange={(_, value) => setElectionDay(value)}
-        options={electionSettings.pl}
-        renderInput={(params) => (
-          <TextField {...params} label="Election day" sx={{ width: 200 }} />
-        )}
-        value={electionDay}
-      />
+    <Stack alignItems="start" gap={2} m={4}>
+      <Stack direction="row" flexWrap="wrap" gap={2}>
+        <Autocomplete
+          disabled={!options.electionDay.length}
+          getOptionLabel={(option) => option.dt}
+          onChange={(_, value) =>
+            dispatch({ type: "electionDay", payload: value })
+          }
+          options={options.electionDay}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Election day"
+              required={required.electionDay}
+              sx={{ width: 200 }}
+            />
+          )}
+          value={value.electionDay}
+        />
 
-      <Autocomplete
-        getOptionLabel={(option) => option.nm}
-        onChange={(_, value) => setElection(value)}
-        options={electionDay?.e ?? []}
-        renderInput={(params) => (
-          <TextField {...params} label="Election" sx={{ width: 500 }} />
-        )}
-        value={election}
-      />
+        <Autocomplete
+          disabled={!options.election.length}
+          getOptionLabel={(option) => option.nm}
+          onChange={(_, value) =>
+            dispatch({ type: "election", payload: value })
+          }
+          options={options.election}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Election"
+              required={required.election}
+              sx={{ width: 500 }}
+            />
+          )}
+          value={value.election}
+        />
 
-      <Autocomplete
-        getOptionLabel={(option) => option.cd}
-        onChange={(_, value) => setLocation(value)}
-        options={election?.abr ?? []}
-        renderInput={(params) => (
-          <TextField {...params} label="Location" sx={{ width: 200 }} />
-        )}
-        value={location}
-      />
+        <Autocomplete
+          disabled={!options.uf.length}
+          getOptionLabel={(option) => option.ds}
+          onChange={(_, value) => dispatch({ type: "uf", payload: value })}
+          options={options.uf}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="UF"
+              required={required.uf}
+              sx={{ width: 300 }}
+            />
+          )}
+          value={value.uf}
+        />
 
-      <Autocomplete
-        getOptionLabel={(option) => option.ds}
-        onChange={(_, value) => setOfficeOrQuestion(value)}
-        options={location?.cp ?? []}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label="Office or question"
-            sx={{ width: 300 }}
-          />
-        )}
-        value={officeOrQuestion}
-      />
+        <Autocomplete
+          disabled={!options.municipality.length}
+          getOptionLabel={(option) => option.nm}
+          onChange={(_, value) =>
+            dispatch({ type: "municipality", payload: value })
+          }
+          options={options.municipality}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Municipality"
+              required={required.municipality}
+              sx={{ width: 400 }}
+            />
+          )}
+          value={value.municipality}
+        />
 
-      <Autocomplete
-        getOptionLabel={(option) => option.ds}
-        onChange={(_, value) => setUf(value)}
-        options={municipalities?.abr ?? []}
-        renderInput={(params) => (
-          <TextField {...params} label="UF" sx={{ width: 300 }} />
-        )}
-        value={uf}
-      />
+        <Autocomplete
+          disabled={!options.zone.length}
+          onChange={(_, value) => dispatch({ type: "zone", payload: value })}
+          options={options.zone}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Zone"
+              required={required.zone}
+              sx={{ width: 200 }}
+            />
+          )}
+          value={value.zone}
+        />
 
-      <Autocomplete
-        getOptionLabel={(option) => option.nm}
-        onChange={(_, value) => setMunicipality(value)}
-        options={uf?.mu ?? []}
-        renderInput={(params) => (
-          <TextField {...params} label="Municipality" sx={{ width: 400 }} />
-        )}
-        value={municipality}
-      />
+        <Autocomplete
+          disabled={!options.officeOrQuestion.length}
+          getOptionLabel={(option) => option.ds}
+          onChange={(_, value) =>
+            dispatch({ type: "officeOrQuestion", payload: value })
+          }
+          options={options.officeOrQuestion}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Office or question"
+              required={required.officeOrQuestion}
+              sx={{ width: 300 }}
+            />
+          )}
+          value={value.officeOrQuestion}
+        />
 
-      <Autocomplete
-        onChange={(_, value) => setZone(value)}
-        options={municipality?.z ?? []}
-        renderInput={(params) => (
-          <TextField {...params} label="Zone" sx={{ width: 200 }} />
-        )}
-        value={zone}
+        <TextField
+          label="Duration"
+          onChange={({ target }) => setDuration(Number(target.value))}
+          select
+          sx={{ width: 100 }}
+          value={duration}
+        >
+          {durations.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Stack>
+
+      <Button
+        disabled={!state.valid}
+        onClick={() =>
+          setQueries([
+            ...queries,
+            {
+              id: queries.length + 1,
+              election: value.election!,
+              uf: value.uf,
+              municipality: value.municipality,
+              zone: value.zone,
+              officeOrQuestion: value.officeOrQuestion!,
+              duration,
+            },
+          ])
+        }
+        variant="contained"
+      >
+        Add
+      </Button>
+
+      <DataGrid
+        autoHeight
+        columns={columns}
+        rows={queries}
+        sx={{ width: "100%" }}
       />
     </Stack>
   );

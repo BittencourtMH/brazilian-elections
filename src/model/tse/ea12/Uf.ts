@@ -1,6 +1,6 @@
 import { Municipality } from "./Municipality";
 
-export type Location = {
+export type Uf = {
   cd: string;
   ds: string;
   mu: Municipality[];
